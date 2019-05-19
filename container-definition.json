@@ -1,0 +1,32 @@
+[
+  {
+    "name": "${container_name}",
+    "image": "${image}:${version}",
+    "cpu": ${cpu},
+    "memoryReservation": ${memory},
+    "essential": true,
+    "portMappings": [{
+        "containerPort": ${container_port},
+        "protocol": "tcp"
+    }],
+    "environment" : [
+        { "name" : "API_ENDPOINT", "value" : "${api_endpoint}" }
+    ],
+    "logConfiguration": {
+      "logDriver": "logentries",
+      "options": {
+        "logentries-token": "${le_token}",
+        "line-only": "true",
+        "mode": "non-blocking",
+        "max-buffer-size": "10m"
+      }
+    },
+    "mountPoints": [
+      {
+        "containerPath": "/var/run/datadog",
+        "sourceVolume": "datadog",
+        "readOnly": false
+      }
+    ]
+  }
+]

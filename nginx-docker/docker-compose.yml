@@ -1,0 +1,10 @@
+version: '3'
+services:
+  nginx-proxy-forwarder:
+    build:
+      context: .
+    environment:
+      API_ENDPOINT: google.com
+    ports:
+      - 9002:443
+      - 9003:8080

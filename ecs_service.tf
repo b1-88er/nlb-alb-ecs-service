@@ -25,15 +25,7 @@ resource "aws_ecs_service" "service" {
   }
 
   network_configuration {
-    # TF-UPGRADE-TODO: In Terraform v0.10 and earlier, it was sometimes necessary to
-    # force an interpolation expression to be interpreted as a list by wrapping it
-    # in an extra set of list brackets. That form was supported for compatibility in
-    # v0.11, but is no longer supported in Terraform v0.12.
-    #
-    # If the expression in the following list itself returns a list, remove the
-    # brackets to avoid interpretation as a list of lists. If the expression
-    # returns a single list item then leave it as-is and remove this TODO comment.
-    subnets         = [var.subnet_ids]
+    subnets         = var.subnet_ids
     security_groups = [aws_security_group.eip_to_ecs.id]
   }
 }
@@ -49,7 +41,7 @@ resource "aws_ecs_task_definition" "task" {
 
 resource "aws_security_group" "eip_to_ecs" {
   name        = "${local.service_name}-${var.environment}-allow-ecs-access"
-  description = "allow connetions between eips and ecs tasks"
+  description = "allow target group access to containers"
   vpc_id      = var.vpc_id
 
   egress {
@@ -64,11 +56,8 @@ resource "aws_security_group" "eip_to_ecs" {
     to_port   = local.container_port
     protocol  = "tcp"
 
-    # these apis are available later, might require running apply twice :<
-    cidr_blocks = [
-      "${aws_eip.lb1.private_ip}/32",
-      "${aws_eip.lb2.private_ip}/32",
-    ]
+    # you can restrict it to base VPC cidr block
+    cidr_blocks = [ "0.0.0.0/0" ]
   }
 }
 

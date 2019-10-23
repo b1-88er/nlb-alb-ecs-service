@@ -1,7 +1,7 @@
 resource "aws_ecs_service" "service" {
-  name            = "${local.service_name}"
-  cluster         = "${var.ecs_service_arn}"
-  task_definition = "${aws_ecs_task_definition.task.arn}"
+  name            = local.service_name
+  cluster         = var.ecs_service_arn
+  task_definition = aws_ecs_task_definition.task.arn
 
   desired_count                      = "3"
   deployment_maximum_percent         = "200"
@@ -19,40 +19,49 @@ resource "aws_ecs_service" "service" {
   }
 
   load_balancer {
-    target_group_arn = "${aws_lb_target_group.tg_for_nlb.arn}"
-    container_name   = "${local.service_name}"
-    container_port   = "${local.container_port}"
+    target_group_arn = aws_lb_target_group.tg_for_nlb.arn
+    container_name   = local.service_name
+    container_port   = local.container_port
   }
 
   network_configuration {
-    subnets = ["${var.subnet_ids}"]
-    security_groups = ["${aws_security_group.eip_to_ecs.id}"]
+    # TF-UPGRADE-TODO: In Terraform v0.10 and earlier, it was sometimes necessary to
+    # force an interpolation expression to be interpreted as a list by wrapping it
+    # in an extra set of list brackets. That form was supported for compatibility in
+    # v0.11, but is no longer supported in Terraform v0.12.
+    #
+    # If the expression in the following list itself returns a list, remove the
+    # brackets to avoid interpretation as a list of lists. If the expression
+    # returns a single list item then leave it as-is and remove this TODO comment.
+    subnets         = [var.subnet_ids]
+    security_groups = [aws_security_group.eip_to_ecs.id]
   }
 }
 
 resource "aws_ecs_task_definition" "task" {
-  family                = "${local.service_name}"
-  container_definitions = "${data.template_file.ecs_task_container_definitions.rendered}"
-  task_role_arn         = "${aws_iam_role.ecs_task.arn}"
+  family                = local.service_name
+  container_definitions = data.template_file.ecs_task_container_definitions.rendered
+  task_role_arn         = aws_iam_role.ecs_task.arn
+
   # each task gets its own net interface
-  network_mode          = "awsvpc"
+  network_mode = "awsvpc"
 }
 
 resource "aws_security_group" "eip_to_ecs" {
   name        = "${local.service_name}-${var.environment}-allow-ecs-access"
   description = "allow connetions between eips and ecs tasks"
-  vpc_id      = "${var.vpc_id}"
+  vpc_id      = var.vpc_id
 
   egress {
-    from_port       = 0
-    to_port         = 0
-    protocol        = "-1"
-    cidr_blocks     = ["0.0.0.0/0"]
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
   ingress {
-    from_port = "${local.container_port}"
-    to_port   = "${local.container_port}"
+    from_port = local.container_port
+    to_port   = local.container_port
     protocol  = "tcp"
 
     # these apis are available later, might require running apply twice :<
@@ -65,7 +74,7 @@ resource "aws_security_group" "eip_to_ecs" {
 
 resource "aws_iam_role" "ecs_task" {
   name               = "${var.environment}-${local.service_name}-task"
-  assume_role_policy = "${data.aws_iam_policy_document.ecs_task.json}"
+  assume_role_policy = data.aws_iam_policy_document.ecs_task.json
 }
 
 data "aws_iam_policy_document" "ecs_task" {
@@ -81,16 +90,16 @@ data "aws_iam_policy_document" "ecs_task" {
 }
 
 data "template_file" "ecs_task_container_definitions" {
-  template = "${file("${path.module}/container-definition.json")}"
+  template = file("${path.module}/container-definition.json")
 
-  vars {
-    container_name = "${local.service_name}"
-
-    image          = "${var.docker_image}"
-    version        = "${var.docker_image_version}"
-    cpu            = "${var.ecs_cpu}"
-    memory         = "${var.ecs_memory}"
-    container_port = "${local.container_port}"
+  vars = {
+    container_name = local.service_name
+    image          = var.docker_image
+    version        = var.docker_image_version
+    cpu            = var.ecs_cpu
+    memory         = var.ecs_memory
+    container_port = local.container_port
     api_endpoint   = "${var.target_service_domain_name}:443"
   }
 }
+
